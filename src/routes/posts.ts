@@ -15,17 +15,44 @@ export async function postsRoutes(app: FastifyInstance) {
       orderBy: {
         createdAt: 'asc',
       },
-    })
-
-    return posts.map((post: { id: any; postUrl: any; content: string; createdAt: any }) => {
+    });
+  
+    return posts.map((post) => {
       return {
         id: post.id,
-        coverUrl: post.postUrl,
-        excerpt: post.content.substring(0, 115).concat('...'),
+        title: post.title,
+        content: post.content, 
         createdAt: post.createdAt,
-      }
-    })
-  })
+        rating: post.rating,
+      };
+    });
+  });
+
+  app.get('/posts/all', async (request, reply) => {
+    try {
+      const posts = await prisma.post.findMany({
+        orderBy: {
+          createdAt: 'desc',
+        },
+      });
+  
+      const formattedPosts = posts.map((post) => ({
+        id: post.id,
+        title: post.title,
+        content: post.content,
+        createdAt: post.createdAt,
+        rating: post.rating,
+      }));
+  
+      return formattedPosts;
+    } catch (error) {
+      console.error('Error fetching posts:', error);
+      return reply.status(500).send({
+        error: 'Internal Server Error',
+      });
+    }
+  });
+    
 
   app.get('/posts/:id', async (request, reply) => {
     const paramsSchema = z.object({
@@ -40,28 +67,24 @@ export async function postsRoutes(app: FastifyInstance) {
       },
     })
 
-    if (!post.isPublic && post.userId !== request.user.sub) {
-      return reply.status(401).send()
-    }
-
     return post
   })
 
   app.post('/posts', async (request) => {
     const bodySchema = z.object({
       content: z.string(),
-      coverUrl: z.string(),
-      isPublic: z.coerce.boolean().default(false),
+      title: z.string(),
+      rating: z.number().int().nullable(), 
     })
 
-    const { content, coverUrl, isPublic } = bodySchema.parse(request.body)
+    const { content, title, rating } = bodySchema.parse(request.body)
 
     const post = await prisma.post.create({
       data: {
         content,
-        coverUrl,
-        isPublic,
+        title,
         userId: request.user.sub,
+        rating,
       },
     })
 
@@ -77,11 +100,12 @@ export async function postsRoutes(app: FastifyInstance) {
 
     const bodySchema = z.object({
       content: z.string(),
-      coverUrl: z.string(),
+      title: z.string(),
       isPublic: z.coerce.boolean().default(false),
+      rating: z.number().int().nullable(), 
     })
 
-    const { content, coverUrl, isPublic } = bodySchema.parse(request.body)
+    const { content, title, isPublic, rating } = bodySchema.parse(request.body)
 
     let post = await prisma.post.findUniqueOrThrow({
       where: {
@@ -99,8 +123,8 @@ export async function postsRoutes(app: FastifyInstance) {
       },
       data: {
         content,
-        coverUrl,
-        isPublic,
+        title,
+        rating,
       },
     })
 
@@ -129,5 +153,4 @@ export async function postsRoutes(app: FastifyInstance) {
         id,
       },
     })
-  })
-}
+  })};
